@@ -18,6 +18,7 @@
 #include <Jolt/Physics/Collision/Shape/CapsuleShape.h>
 #include <Jolt/Physics/Collision/Shape/CompoundShape.h>
 #include <Jolt/Physics/Collision/Shape/ConvexHullShape.h>
+#include <Jolt/Physics/Collision/Shape/HeightFieldShape.h>
 #include <Jolt/Physics/Collision/Shape/CylinderShape.h>
 #include <Jolt/Physics/Collision/Shape/MeshShape.h>
 #include <Jolt/Physics/Collision/Shape/MutableCompoundShape.h>
@@ -128,6 +129,7 @@ OPAQUE_WRAPPER(JPC_JobSystemSingleThreaded, JPH::JobSystemSingleThreaded)
 DESTRUCTOR(JPC_JobSystemSingleThreaded)
 
 OPAQUE_WRAPPER(JPC_Shape, JPH::Shape)
+OPAQUE_WRAPPER(JPC_HeightFieldShape, JPH::HeightFieldShape)
 OPAQUE_WRAPPER(JPC_CompoundShape, JPH::CompoundShape)
 OPAQUE_WRAPPER(JPC_Body, JPH::Body)
 
@@ -1793,6 +1795,101 @@ JPC_API bool JPC_MeshShapeSettings_Create(const JPC_MeshShapeSettings* self, JPC
 	settings.Sanitize();
 
 	return HandleShapeResult(settings.Create(), outShape, outError);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// HeightFieldShapeSettings
+
+static_assert(std::is_same_v<decltype(JPC_HeightFieldShapeSettings::UserData), decltype(JPH::HeightFieldShapeSettings::mUserData)>);
+static_assert(std::is_same_v<decltype(JPC_HeightFieldShapeSettings::SampleCount), decltype(JPH::HeightFieldShapeSettings::mSampleCount)>);
+static_assert(std::is_same_v<decltype(JPC_HeightFieldShapeSettings::MinHeightValue), decltype(JPH::HeightFieldShapeSettings::mMinHeightValue)>);
+static_assert(std::is_same_v<decltype(JPC_HeightFieldShapeSettings::MaxHeightValue), decltype(JPH::HeightFieldShapeSettings::mMaxHeightValue)>);
+static_assert(std::is_same_v<decltype(JPC_HeightFieldShapeSettings::MaterialsCapacity), decltype(JPH::HeightFieldShapeSettings::mMaterialsCapacity)>);
+static_assert(std::is_same_v<decltype(JPC_HeightFieldShapeSettings::BlockSize), decltype(JPH::HeightFieldShapeSettings::mBlockSize)>);
+static_assert(std::is_same_v<decltype(JPC_HeightFieldShapeSettings::BitsPerSample), decltype(JPH::HeightFieldShapeSettings::mBitsPerSample)>);
+static_assert(std::is_same_v<decltype(JPC_HeightFieldShapeSettings::ActiveEdgeCosThresholdAngle), decltype(JPH::HeightFieldShapeSettings::mActiveEdgeCosThresholdAngle)>);
+
+static void to_jph(const JPC_HeightFieldShapeSettings* input, JPH::HeightFieldShapeSettings* output) {
+	output->mUserData = input->UserData;
+	output->mOffset = to_jph(input->Offset);
+	output->mScale = to_jph(input->Scale);
+	output->mSampleCount = input->SampleCount;
+	output->mMinHeightValue = input->MinHeightValue;
+	output->mMaxHeightValue = input->MaxHeightValue;
+	output->mMaterialsCapacity = input->MaterialsCapacity;
+	output->mBlockSize = input->BlockSize;
+	output->mBitsPerSample = input->BitsPerSample;
+	output->mHeightSamples.assign(input->HeightSamples, input->HeightSamples + input->HeightSamplesLen);
+	output->mActiveEdgeCosThresholdAngle = input->ActiveEdgeCosThresholdAngle;
+}
+
+JPC_API void JPC_HeightFieldShapeSettings_default(JPC_HeightFieldShapeSettings* object) {
+	JPH::HeightFieldShapeSettings settings;
+	object->UserData = settings.mUserData;
+	object->Offset = to_jpc(settings.mOffset);
+	object->Scale = to_jpc(settings.mScale);
+	object->SampleCount = settings.mSampleCount;
+	object->MinHeightValue = settings.mMinHeightValue;
+	object->MaxHeightValue = settings.mMaxHeightValue;
+	object->MaterialsCapacity = settings.mMaterialsCapacity;
+	object->BlockSize = settings.mBlockSize;
+	object->BitsPerSample = settings.mBitsPerSample;
+	object->HeightSamples = nullptr;
+	object->HeightSamplesLen = 0;
+	object->ActiveEdgeCosThresholdAngle = settings.mActiveEdgeCosThresholdAngle;
+}
+
+JPC_API bool JPC_HeightFieldShapeSettings_Create(const JPC_HeightFieldShapeSettings* self, JPC_Shape** outShape, JPC_String** outError) {
+	*outShape = nullptr;
+	if (outError != nullptr)
+		*outError = nullptr;
+
+	JPH::ShapeSettings::ShapeResult error;
+	if (self->BlockSize < 2 || self->BlockSize > 8)
+		error.SetError("Heightfield block size must be in [2, 8]");
+	else if (self->BitsPerSample < 1 || self->BitsPerSample > JPH::HeightFieldShapeConstants::cMaxBitsPerSample)
+		error.SetError("Heightfield bits per sample must be in [1, 16]");
+	else if (self->SampleCount <= self->BlockSize || uint64_t(self->SampleCount) + self->BlockSize - 1 > UINT32_MAX)
+		error.SetError("Heightfield sample count is too small or overflows block rounding");
+	else if (self->HeightSamples == nullptr || uint64_t(self->SampleCount) * self->SampleCount != self->HeightSamplesLen)
+		error.SetError("Heightfield requires SampleCount squared height samples");
+	if (error.HasError())
+		return HandleShapeResult(error, outShape, outError);
+
+	JPH::HeightFieldShapeSettings settings;
+	to_jph(self, &settings);
+	return HandleShapeResult(settings.Create(), outShape, outError);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// HeightFieldShape
+
+JPC_API uint32_t JPC_HeightFieldShape_GetSampleCount(const JPC_HeightFieldShape* self) {
+	return to_jph(self)->GetSampleCount();
+}
+
+JPC_API uint32_t JPC_HeightFieldShape_GetBlockSize(const JPC_HeightFieldShape* self) {
+	return to_jph(self)->GetBlockSize();
+}
+
+JPC_API JPC_Vec3 JPC_HeightFieldShape_GetPosition(const JPC_HeightFieldShape* self, uint32_t inX, uint32_t inY) {
+	return to_jpc(to_jph(self)->GetPosition(inX, inY));
+}
+
+JPC_API bool JPC_HeightFieldShape_IsNoCollision(const JPC_HeightFieldShape* self, uint32_t inX, uint32_t inY) {
+	return to_jph(self)->IsNoCollision(inX, inY);
+}
+
+JPC_API float JPC_HeightFieldShape_GetMinHeightValue(const JPC_HeightFieldShape* self) {
+	return to_jph(self)->GetMinHeightValue();
+}
+
+JPC_API float JPC_HeightFieldShape_GetMaxHeightValue(const JPC_HeightFieldShape* self) {
+	return to_jph(self)->GetMaxHeightValue();
+}
+
+JPC_API float JPC_HeightFieldShape_GetNoCollisionValue(void) {
+	return JPH::HeightFieldShapeConstants::cNoCollisionValue;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

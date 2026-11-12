@@ -1143,6 +1143,40 @@ JPC_API void JPC_MeshShapeSettings_default(JPC_MeshShapeSettings* object);
 JPC_API bool JPC_MeshShapeSettings_Create(const JPC_MeshShapeSettings* self, JPC_Shape** outShape, JPC_String** outError);
 
 ////////////////////////////////////////////////////////////////////////////////
+// HeightFieldShape -> Shape
+
+typedef struct JPC_HeightFieldShape JPC_HeightFieldShape;
+
+JPC_API uint32_t JPC_HeightFieldShape_GetSampleCount(const JPC_HeightFieldShape* self);
+JPC_API uint32_t JPC_HeightFieldShape_GetBlockSize(const JPC_HeightFieldShape* self);
+JPC_API JPC_Vec3 JPC_HeightFieldShape_GetPosition(const JPC_HeightFieldShape* self, uint32_t inX, uint32_t inY);
+JPC_API bool JPC_HeightFieldShape_IsNoCollision(const JPC_HeightFieldShape* self, uint32_t inX, uint32_t inY);
+JPC_API float JPC_HeightFieldShape_GetMinHeightValue(const JPC_HeightFieldShape* self);
+JPC_API float JPC_HeightFieldShape_GetMaxHeightValue(const JPC_HeightFieldShape* self);
+JPC_API float JPC_HeightFieldShape_GetNoCollisionValue(void);
+
+////////////////////////////////////////////////////////////////////////////////
+// HeightFieldShapeSettings -> ShapeSettings
+
+typedef struct JPC_HeightFieldShapeSettings {
+	uint64_t UserData;
+	JPC_Vec3 Offset;
+	JPC_Vec3 Scale;
+	uint32_t SampleCount;
+	float MinHeightValue;
+	float MaxHeightValue;
+	uint32_t MaterialsCapacity;
+	uint32_t BlockSize;
+	uint32_t BitsPerSample;
+	const float* HeightSamples;
+	size_t HeightSamplesLen;
+	float ActiveEdgeCosThresholdAngle;
+} JPC_HeightFieldShapeSettings;
+
+JPC_API void JPC_HeightFieldShapeSettings_default(JPC_HeightFieldShapeSettings* object);
+JPC_API bool JPC_HeightFieldShapeSettings_Create(const JPC_HeightFieldShapeSettings* self, JPC_Shape** outShape, JPC_String** outError);
+
+////////////////////////////////////////////////////////////////////////////////
 // BoxShapeSettings -> ConvexShapeSettings -> ShapeSettings
 
 typedef struct JPC_BoxShapeSettings {
